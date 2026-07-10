@@ -14,7 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      recuperacao_tentativas: {
+        Row: {
+          created_at: string
+          id: string
+          ip: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          ip: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          ip?: string
+        }
+        Relationships: []
+      }
+      usuarios_recuperacao: {
+        Row: {
+          created_at: string
+          email_login: string
+          email_recuperacao: string
+          id: string
+          senha_temporaria: boolean
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email_login: string
+          email_recuperacao: string
+          id?: string
+          senha_temporaria?: boolean
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email_login?: string
+          email_recuperacao?: string
+          id?: string
+          senha_temporaria?: boolean
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
