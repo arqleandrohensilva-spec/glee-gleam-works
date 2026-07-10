@@ -1,57 +1,73 @@
-import { createFileRoute, Link, redirect } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
-export const Route = createFileRoute("/login")({
+export const Route = createFileRoute("/redefinir-senha")({
   ssr: false,
-  beforeLoad: async () => {
-    const { data } = await supabase.auth.getSession();
-    if (data.session) throw redirect({ to: "/" });
-  },
-  component: LoginPage,
+  component: RedefinirSenhaPage,
 });
 
-function LoginPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+function RedefinirSenhaPage() {
+  const [senha, setSenha] = useState("");
+  const [confirmar, setConfirmar] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    // Show success message after password reset
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get("reset") === "1") {
-        setNotice("Senha redefinida com sucesso. Faça login com a nova senha.");
+    // O Supabase entrega a sessão via hash na URL (#access_token=...&type=recovery)
+    // e a client lib processa automaticamente. Confirmamos que há sessão de recuperação.
+    supabase.auth.getSession().then(({ data }) => {
+      setReady(true);
+      if (!data.session) {
+        setError("Link inválido ou expirado. Solicite um novo link de recuperação.");
       }
-    }
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") {
+        setReady(true);
+        setError(null);
+      }
+    });
+    return () => sub.subscription.unsubscribe();
   }, []);
-
-  async function routeAfterLogin(userId: string) {
-    const { data } = await supabase
-      .from("usuarios_recuperacao")
-      .select("senha_temporaria")
-      .eq("user_id", userId)
-      .maybeSingle();
-    if (data?.senha_temporaria) {
-      window.location.replace("/trocar-senha");
-    } else {
-      window.location.replace("/");
-    }
-  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    setLoading(true);
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error || !data.user) {
-      setLoading(false);
-      setError("Credenciais inválidas. Verifique e tente novamente.");
+    if (senha.length < 8) {
+      setError("A senha deve ter no mínimo 8 caracteres.");
       return;
     }
-    await routeAfterLogin(data.user.id);
+    if (senha !== confirmar) {
+      setError("As senhas não coincidem.");
+      return;
+    }
+    setLoading(true);
+
+    const { data: userData } = await supabase.auth.getUser();
+    const { error: updateErr } = await supabase.auth.updateUser({ password: senha });
+    if (updateErr) {
+      setLoading(false);
+      setError("Não foi possível redefinir a senha. Tente novamente.");
+      return;
+    }
+
+    const userId = userData.user?.id;
+    if (userId) {
+      try {
+        await fetch("/api/public/marcar-senha-definitiva", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user_id: userId }),
+        });
+      } catch {
+        // ignora
+      }
+    }
+
+    await supabase.auth.signOut();
+    window.location.replace("/login?reset=1");
   }
 
   return (
@@ -68,61 +84,53 @@ function LoginPage() {
             <span className="text-white font-serif font-bold text-lg leading-none">NL</span>
           </div>
           <h1 className="mt-5 font-serif text-[20px]" style={{ color: "var(--graphite)" }}>
-            NL OS
+            Redefinir senha
           </h1>
           <p
-            className="mt-1 font-mono uppercase tracking-widest"
-            style={{ color: "var(--bronze)", fontSize: "10px" }}
+            className="mt-2 font-mono"
+            style={{ color: "var(--bronze)", fontSize: "11px", opacity: 0.8 }}
           >
-            Sistema interno · NL Arquitetos
+            Defina uma nova senha para sua conta.
           </p>
         </div>
-
-        {notice && (
-          <p
-            className="mt-6 font-mono text-xs text-center"
-            style={{ color: "var(--graphite)" }}
-            role="status"
-          >
-            {notice}
-          </p>
-        )}
 
         <form onSubmit={handleSubmit} className="mt-10 space-y-6">
           <div className="space-y-2">
             <label
-              htmlFor="email"
+              htmlFor="nova"
               className="block font-mono uppercase tracking-widest"
               style={{ color: "var(--bronze)", fontSize: "10px" }}
             >
-              E-mail
+              Nova senha
             </label>
             <input
-              id="email"
-              type="email"
+              id="nova"
+              type="password"
               required
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              minLength={8}
+              autoComplete="new-password"
+              value={senha}
+              onChange={(e) => setSenha(e.target.value)}
               className="w-full h-11 px-3 bg-[color:var(--ice)] border border-[color:var(--divider)] rounded-md font-mono text-sm outline-none focus:border-[color:var(--bronze)] transition-colors"
               style={{ color: "var(--graphite)" }}
             />
           </div>
           <div className="space-y-2">
             <label
-              htmlFor="password"
+              htmlFor="confirmar"
               className="block font-mono uppercase tracking-widest"
               style={{ color: "var(--bronze)", fontSize: "10px" }}
             >
-              Senha
+              Confirmar senha
             </label>
             <input
-              id="password"
+              id="confirmar"
               type="password"
               required
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              minLength={8}
+              autoComplete="new-password"
+              value={confirmar}
+              onChange={(e) => setConfirmar(e.target.value)}
               className="w-full h-11 px-3 bg-[color:var(--ice)] border border-[color:var(--divider)] rounded-md font-mono text-sm outline-none focus:border-[color:var(--bronze)] transition-colors"
               style={{ color: "var(--graphite)" }}
             />
@@ -136,24 +144,14 @@ function LoginPage() {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !ready}
             className="w-full h-11 rounded-md font-mono uppercase tracking-widest text-xs text-white transition-colors disabled:opacity-60"
             style={{ backgroundColor: "var(--graphite)" }}
             onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--bronze)")}
             onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "var(--graphite)")}
           >
-            {loading ? "Entrando..." : "Entrar"}
+            {loading ? "Salvando..." : "Redefinir senha"}
           </button>
-
-          <div className="text-center">
-            <Link
-              to="/recuperar-senha"
-              className="font-mono uppercase tracking-widest text-[10px] transition-colors hover:opacity-70"
-              style={{ color: "var(--bronze)" }}
-            >
-              Esqueci minha senha
-            </Link>
-          </div>
         </form>
       </div>
     </div>
