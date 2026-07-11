@@ -38,12 +38,7 @@ function LoginPage() {
       setError("Credenciais inválidas. Verifique e tente novamente.");
       return;
     }
-    const meta = (data.user.user_metadata ?? {}) as { senha_temporaria?: boolean };
-    if (meta.senha_temporaria) {
-      window.location.replace("/trocar-senha");
-    } else {
-      window.location.replace("/");
-    }
+    window.location.replace("/");
   }
 
   return (
