@@ -66,24 +66,34 @@ export const Route = createFileRoute("/api/public/recuperar-senha")({
 
             if (!linkErr && linkData?.properties?.action_link) {
               const actionLink = linkData.properties.action_link;
-              const apiKey = process.env.LOVABLE_API_KEY;
-              if (apiKey) {
+              const resendKey = process.env.RESEND_API_KEY;
+              if (resendKey) {
                 try {
-                  await sendLovableEmail(
-                    {
-                      to: rec.email_recuperacao,
-                      from: "NL OS <no-reply@nl.arq.br>",
-                      subject: "Redefinição de senha · NL OS",
+                  const res = await fetch("https://api.resend.com/emails", {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: `Bearer ${resendKey}`,
+                    },
+                    body: JSON.stringify({
+                      from: "NL OS <naoresponda@notificacoes.nl.arq.br>",
+                      to: [rec.email_recuperacao],
+                      subject: "Redefinição de senha — NL OS",
                       html: renderHtml(actionLink),
                       text: renderText(actionLink),
-                    },
-                    { apiKey },
-                  );
+                    }),
+                  });
+                  if (!res.ok) {
+                    const errBody = await res.text();
+                    console.error(
+                      `[recuperar-senha] resend failed [${res.status}]: ${errBody}`,
+                    );
+                  }
                 } catch (err) {
                   console.error("[recuperar-senha] email send failed", err);
                 }
               } else {
-                console.error("[recuperar-senha] LOVABLE_API_KEY não configurada");
+                console.error("[recuperar-senha] RESEND_API_KEY não configurada");
               }
             } else if (linkErr) {
               console.error("[recuperar-senha] generateLink error", linkErr);
