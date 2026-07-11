@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { PasswordInput } from "@/components/PasswordInput";
 
 export const Route = createFileRoute("/redefinir-senha")({
   ssr: false,
@@ -90,16 +91,12 @@ function RedefinirSenhaPage() {
             >
               Nova senha
             </label>
-            <input
+            <PasswordInput
               id="nova"
-              type="password"
-              required
-              minLength={8}
-              autoComplete="new-password"
               value={senha}
-              onChange={(e) => setSenha(e.target.value)}
-              className="w-full h-11 px-3 bg-[color:var(--ice)] border border-[color:var(--divider)] rounded-md font-mono text-sm outline-none focus:border-[color:var(--bronze)] transition-colors"
-              style={{ color: "var(--graphite)" }}
+              onChange={setSenha}
+              autoComplete="new-password"
+              minLength={8}
             />
           </div>
           <div className="space-y-2">
@@ -110,16 +107,12 @@ function RedefinirSenhaPage() {
             >
               Confirmar senha
             </label>
-            <input
+            <PasswordInput
               id="confirmar"
-              type="password"
-              required
-              minLength={8}
-              autoComplete="new-password"
               value={confirmar}
-              onChange={(e) => setConfirmar(e.target.value)}
-              className="w-full h-11 px-3 bg-[color:var(--ice)] border border-[color:var(--divider)] rounded-md font-mono text-sm outline-none focus:border-[color:var(--bronze)] transition-colors"
-              style={{ color: "var(--graphite)" }}
+              onChange={setConfirmar}
+              autoComplete="new-password"
+              minLength={8}
             />
           </div>
 

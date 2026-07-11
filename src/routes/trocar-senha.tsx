@@ -1,6 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { PasswordInput } from "@/components/PasswordInput";
 
 export const Route = createFileRoute("/trocar-senha")({
   ssr: false,
@@ -118,16 +119,12 @@ function SenhaField({
       >
         {label}
       </label>
-      <input
+      <PasswordInput
         id={id}
-        type="password"
-        required
-        minLength={8}
-        autoComplete="new-password"
         value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full h-11 px-3 bg-[color:var(--ice)] border border-[color:var(--divider)] rounded-md font-mono text-sm outline-none focus:border-[color:var(--bronze)] transition-colors"
-        style={{ color: "var(--graphite)" }}
+        onChange={onChange}
+        autoComplete="new-password"
+        minLength={8}
       />
     </div>
   );
