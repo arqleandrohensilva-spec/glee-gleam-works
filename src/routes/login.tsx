@@ -55,7 +55,7 @@ function LoginPage() {
             <span className="text-white font-serif font-bold text-lg leading-none">NL</span>
           </div>
           <h1 className="mt-5 font-serif text-[20px]" style={{ color: "var(--graphite)" }}>
-            NL OS
+            NL OS HUB
           </h1>
           <p
             className="mt-1 font-mono uppercase tracking-widest"
