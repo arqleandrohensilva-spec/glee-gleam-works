@@ -30,14 +30,14 @@ const SYSTEMS: SystemDef[] = [
     description: "Clientes, propostas, projetos e financeiro",
     icon: Briefcase,
     status: "active",
-    url: "https://app.nl.arq.br",
+    url: "https://app.nl.arq.br/auth/callback",
   },
   {
     name: "NL OS MKT",
     description: "Conteúdo, biblioteca visual e radar de mercado",
     icon: Megaphone,
     status: "active",
-    url: "https://nl-os-mkt.lovable.app",
+    url: "https://nl-os-mkt.lovable.app/auth/callback",
   },
   {
     name: "NL OS FIN",
