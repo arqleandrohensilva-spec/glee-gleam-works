@@ -37,7 +37,7 @@ const SYSTEMS: SystemDef[] = [
     description: "Conteúdo, biblioteca visual e radar de mercado",
     icon: Megaphone,
     status: "active",
-    url: "https://nl-os-mkt.lovable.app/auth/callback",
+    url: "https://nlosmktv2.lovable.app/auth/callback",
   },
   {
     name: "NL OS FIN",
