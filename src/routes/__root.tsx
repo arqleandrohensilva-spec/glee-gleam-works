@@ -84,6 +84,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:description", content: "Portal de acesso unificado ao ecossistema de sistemas internos da NL Arquitetos." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "NL OS HUB · NL Arquitetos" },
+      { name: "twitter:description", content: "Portal de acesso unificado ao ecossistema de sistemas internos da NL Arquitetos." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/a5592be3-5e75-4174-b6c4-aeb927b9b171/id-preview-fc4f8ae3--d0d3d5a3-a735-4772-bb21-05279e655a76.lovable.app-1783780796664.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/a5592be3-5e75-4174-b6c4-aeb927b9b171/id-preview-fc4f8ae3--d0d3d5a3-a735-4772-bb21-05279e655a76.lovable.app-1783780796664.png" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
