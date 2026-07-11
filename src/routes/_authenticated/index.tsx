@@ -3,8 +3,6 @@ import { useEffect, useState } from "react";
 import {
   Briefcase,
   Megaphone,
-  DollarSign,
-  FolderOpen,
   Camera,
   LogOut,
   type LucideIcon,
@@ -39,18 +37,6 @@ const SYSTEMS: SystemDef[] = [
     icon: Megaphone,
     status: "active",
     url: "https://nlosmktv2.lovable.app/auth/callback",
-  },
-  {
-    name: "NL OS FIN",
-    description: "Em desenvolvimento",
-    icon: DollarSign,
-    status: "soon",
-  },
-  {
-    name: "NL OS PROJ",
-    description: "Em desenvolvimento",
-    icon: FolderOpen,
-    status: "soon",
   },
   {
     name: "NL OS RENDER",
