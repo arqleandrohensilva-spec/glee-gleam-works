@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { nlosAuth } from "@/lib/nlos-auth-client";
 import { PasswordInput } from "@/components/PasswordInput";
 
 export const Route = createFileRoute("/redefinir-senha")({
@@ -16,13 +16,13 @@ function RedefinirSenhaPage() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
+    nlosAuth.auth.getSession().then(({ data }) => {
       setReady(true);
       if (!data.session) {
         setError("Link inválido ou expirado. Solicite um novo link de recuperação.");
       }
     });
-    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+    const { data: sub } = nlosAuth.auth.onAuthStateChange((event) => {
       if (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") {
         setReady(true);
         setError(null);
@@ -44,17 +44,14 @@ function RedefinirSenhaPage() {
     }
     setLoading(true);
 
-    const { error: updateErr } = await supabase.auth.updateUser({
-      password: senha,
-      data: { senha_temporaria: false },
-    });
+    const { error: updateErr } = await nlosAuth.auth.updateUser({ password: senha });
     if (updateErr) {
       setLoading(false);
       setError("Não foi possível redefinir a senha. Tente novamente.");
       return;
     }
 
-    await supabase.auth.signOut();
+    await nlosAuth.auth.signOut();
     window.location.replace("/login?reset=1");
   }
 
