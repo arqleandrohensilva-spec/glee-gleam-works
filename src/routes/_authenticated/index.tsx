@@ -5,6 +5,7 @@ import {
   Megaphone,
   DollarSign,
   FolderOpen,
+  Camera,
   LogOut,
   type LucideIcon,
 } from "lucide-react";
@@ -49,6 +50,12 @@ const SYSTEMS: SystemDef[] = [
     name: "NL OS PROJ",
     description: "Em desenvolvimento",
     icon: FolderOpen,
+    status: "soon",
+  },
+  {
+    name: "NL OS RENDER",
+    description: "Renders com IA a partir de projetos reais",
+    icon: Camera,
     status: "soon",
   },
 ];
