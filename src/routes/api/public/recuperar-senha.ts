@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { sendLovableEmail } from "@lovable.dev/email-js";
+
 
 export const Route = createFileRoute("/api/public/recuperar-senha")({
   server: {
