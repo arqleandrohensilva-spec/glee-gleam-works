@@ -6,10 +6,6 @@ export const Route = createFileRoute("/_authenticated")({
   beforeLoad: async () => {
     const { data, error } = await supabase.auth.getUser();
     if (error || !data.user) throw redirect({ to: "/login" });
-
-    const meta = (data.user.user_metadata ?? {}) as { senha_temporaria?: boolean };
-    if (meta.senha_temporaria) throw redirect({ to: "/trocar-senha" });
-
     return { user: data.user };
   },
   component: () => <Outlet />,
