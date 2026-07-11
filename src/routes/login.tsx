@@ -19,7 +19,6 @@ function LoginPage() {
   const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
-    // Show success message after password reset
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       if (params.get("reset") === "1") {
@@ -27,19 +26,6 @@ function LoginPage() {
       }
     }
   }, []);
-
-  async function routeAfterLogin(userId: string) {
-    const { data } = await supabase
-      .from("usuarios_recuperacao")
-      .select("senha_temporaria")
-      .eq("user_id", userId)
-      .maybeSingle();
-    if (data?.senha_temporaria) {
-      window.location.replace("/trocar-senha");
-    } else {
-      window.location.replace("/");
-    }
-  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -51,7 +37,12 @@ function LoginPage() {
       setError("Credenciais inválidas. Verifique e tente novamente.");
       return;
     }
-    await routeAfterLogin(data.user.id);
+    const meta = (data.user.user_metadata ?? {}) as { senha_temporaria?: boolean };
+    if (meta.senha_temporaria) {
+      window.location.replace("/trocar-senha");
+    } else {
+      window.location.replace("/");
+    }
   }
 
   return (

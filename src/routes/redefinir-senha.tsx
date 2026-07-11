@@ -15,8 +15,6 @@ function RedefinirSenhaPage() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    // O Supabase entrega a sessão via hash na URL (#access_token=...&type=recovery)
-    // e a client lib processa automaticamente. Confirmamos que há sessão de recuperação.
     supabase.auth.getSession().then(({ data }) => {
       setReady(true);
       if (!data.session) {
@@ -45,25 +43,14 @@ function RedefinirSenhaPage() {
     }
     setLoading(true);
 
-    const { data: userData } = await supabase.auth.getUser();
-    const { error: updateErr } = await supabase.auth.updateUser({ password: senha });
+    const { error: updateErr } = await supabase.auth.updateUser({
+      password: senha,
+      data: { senha_temporaria: false },
+    });
     if (updateErr) {
       setLoading(false);
       setError("Não foi possível redefinir a senha. Tente novamente.");
       return;
-    }
-
-    const userId = userData.user?.id;
-    if (userId) {
-      try {
-        await fetch("/api/public/marcar-senha-definitiva", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ user_id: userId }),
-        });
-      } catch {
-        // ignora
-      }
     }
 
     await supabase.auth.signOut();
