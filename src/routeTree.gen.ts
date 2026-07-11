@@ -15,8 +15,6 @@ import { Route as RecuperarSenhaRouteImport } from './routes/recuperar-senha'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
-import { Route as ApiPublicRecuperarSenhaRouteImport } from './routes/api/public/recuperar-senha'
-import { Route as ApiPublicMarcarSenhaDefinitivaRouteImport } from './routes/api/public/marcar-senha-definitiva'
 
 const TrocarSenhaRoute = TrocarSenhaRouteImport.update({
   id: '/trocar-senha',
@@ -47,17 +45,6 @@ const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const ApiPublicRecuperarSenhaRoute = ApiPublicRecuperarSenhaRouteImport.update({
-  id: '/api/public/recuperar-senha',
-  path: '/api/public/recuperar-senha',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicMarcarSenhaDefinitivaRoute =
-  ApiPublicMarcarSenhaDefinitivaRouteImport.update({
-    id: '/api/public/marcar-senha-definitiva',
-    path: '/api/public/marcar-senha-definitiva',
-    getParentRoute: () => rootRouteImport,
-  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
@@ -65,8 +52,6 @@ export interface FileRoutesByFullPath {
   '/recuperar-senha': typeof RecuperarSenhaRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
   '/trocar-senha': typeof TrocarSenhaRoute
-  '/api/public/marcar-senha-definitiva': typeof ApiPublicMarcarSenhaDefinitivaRoute
-  '/api/public/recuperar-senha': typeof ApiPublicRecuperarSenhaRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
@@ -74,8 +59,6 @@ export interface FileRoutesByTo {
   '/redefinir-senha': typeof RedefinirSenhaRoute
   '/trocar-senha': typeof TrocarSenhaRoute
   '/': typeof AuthenticatedIndexRoute
-  '/api/public/marcar-senha-definitiva': typeof ApiPublicMarcarSenhaDefinitivaRoute
-  '/api/public/recuperar-senha': typeof ApiPublicRecuperarSenhaRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -85,8 +68,6 @@ export interface FileRoutesById {
   '/redefinir-senha': typeof RedefinirSenhaRoute
   '/trocar-senha': typeof TrocarSenhaRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
-  '/api/public/marcar-senha-definitiva': typeof ApiPublicMarcarSenhaDefinitivaRoute
-  '/api/public/recuperar-senha': typeof ApiPublicRecuperarSenhaRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -96,17 +77,8 @@ export interface FileRouteTypes {
     | '/recuperar-senha'
     | '/redefinir-senha'
     | '/trocar-senha'
-    | '/api/public/marcar-senha-definitiva'
-    | '/api/public/recuperar-senha'
   fileRoutesByTo: FileRoutesByTo
-  to:
-    | '/login'
-    | '/recuperar-senha'
-    | '/redefinir-senha'
-    | '/trocar-senha'
-    | '/'
-    | '/api/public/marcar-senha-definitiva'
-    | '/api/public/recuperar-senha'
+  to: '/login' | '/recuperar-senha' | '/redefinir-senha' | '/trocar-senha' | '/'
   id:
     | '__root__'
     | '/_authenticated'
@@ -115,8 +87,6 @@ export interface FileRouteTypes {
     | '/redefinir-senha'
     | '/trocar-senha'
     | '/_authenticated/'
-    | '/api/public/marcar-senha-definitiva'
-    | '/api/public/recuperar-senha'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -125,8 +95,6 @@ export interface RootRouteChildren {
   RecuperarSenhaRoute: typeof RecuperarSenhaRoute
   RedefinirSenhaRoute: typeof RedefinirSenhaRoute
   TrocarSenhaRoute: typeof TrocarSenhaRoute
-  ApiPublicMarcarSenhaDefinitivaRoute: typeof ApiPublicMarcarSenhaDefinitivaRoute
-  ApiPublicRecuperarSenhaRoute: typeof ApiPublicRecuperarSenhaRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -173,20 +141,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/api/public/recuperar-senha': {
-      id: '/api/public/recuperar-senha'
-      path: '/api/public/recuperar-senha'
-      fullPath: '/api/public/recuperar-senha'
-      preLoaderRoute: typeof ApiPublicRecuperarSenhaRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/marcar-senha-definitiva': {
-      id: '/api/public/marcar-senha-definitiva'
-      path: '/api/public/marcar-senha-definitiva'
-      fullPath: '/api/public/marcar-senha-definitiva'
-      preLoaderRoute: typeof ApiPublicMarcarSenhaDefinitivaRouteImport
-      parentRoute: typeof rootRouteImport
-    }
   }
 }
 
@@ -207,8 +161,6 @@ const rootRouteChildren: RootRouteChildren = {
   RecuperarSenhaRoute: RecuperarSenhaRoute,
   RedefinirSenhaRoute: RedefinirSenhaRoute,
   TrocarSenhaRoute: TrocarSenhaRoute,
-  ApiPublicMarcarSenhaDefinitivaRoute: ApiPublicMarcarSenhaDefinitivaRoute,
-  ApiPublicRecuperarSenhaRoute: ApiPublicRecuperarSenhaRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

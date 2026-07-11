@@ -29,30 +29,15 @@ function TrocarSenhaPage() {
       return;
     }
     setLoading(true);
-    const { data: userData } = await supabase.auth.getUser();
-    const userId = userData.user?.id;
-    if (!userId) {
-      setLoading(false);
-      window.location.replace("/login");
-      return;
-    }
 
-    const { error: updateErr } = await supabase.auth.updateUser({ password: senha });
+    const { error: updateErr } = await supabase.auth.updateUser({
+      password: senha,
+      data: { senha_temporaria: false },
+    });
     if (updateErr) {
       setLoading(false);
       setError("Não foi possível atualizar a senha. Tente novamente.");
       return;
-    }
-
-    // Marca senha como definitiva via server function (service role)
-    try {
-      await fetch("/api/public/marcar-senha-definitiva", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: userId }),
-      });
-    } catch {
-      // Continua mesmo se falhar; próximo login ainda redirecionará
     }
 
     window.location.replace("/");

@@ -1,46 +1,29 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/recuperar-senha")({
   ssr: false,
   component: RecuperarSenhaPage,
 });
 
-const MENSAGEM_GENERICA =
-  "Se os dados estiverem corretos, você receberá um e-mail com instruções em alguns minutos.";
-
 function RecuperarSenhaPage() {
-  const [emailLogin, setEmailLogin] = useState("");
-  const [emailRecuperacao, setEmailRecuperacao] = useState("");
+  const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
-  const [enviado, setEnviado] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [sent, setSent] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
     setLoading(true);
     try {
-      const res = await fetch("/api/public/recuperar-senha", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email_login: emailLogin.trim().toLowerCase(),
-          email_recuperacao: emailRecuperacao.trim().toLowerCase(),
-        }),
+      await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/redefinir-senha`,
       });
-      if (res.status === 429) {
-        setError("Muitas tentativas. Tente novamente em alguns minutos.");
-        setLoading(false);
-        return;
-      }
-      // Sempre exibe mensagem genérica, independentemente do resultado
-      setEnviado(true);
     } catch {
-      setEnviado(true);
-    } finally {
-      setLoading(false);
+      // silencia — mensagem genérica sempre
     }
+    setLoading(false);
+    setSent(true);
   }
 
   return (
@@ -57,58 +40,50 @@ function RecuperarSenhaPage() {
             <span className="text-white font-serif font-bold text-lg leading-none">NL</span>
           </div>
           <h1 className="mt-5 font-serif text-[20px]" style={{ color: "var(--graphite)" }}>
-            Recuperar acesso
+            Recuperar senha
           </h1>
           <p
             className="mt-2 font-mono"
             style={{ color: "var(--bronze)", fontSize: "11px", opacity: 0.8 }}
           >
-            Informe seu e-mail de acesso e o e-mail pessoal cadastrado para receber o link de
-            redefinição.
+            Informe seu e-mail de acesso para receber o link de redefinição.
           </p>
         </div>
 
-        {enviado ? (
-          <div className="mt-10 space-y-6">
-            <p
-              className="font-mono text-xs text-center"
-              style={{ color: "var(--graphite)" }}
-              role="status"
-            >
-              {MENSAGEM_GENERICA}
+        {sent ? (
+          <div className="mt-10 space-y-6 text-center">
+            <p className="font-mono text-xs" style={{ color: "var(--graphite)" }} role="status">
+              Se o e-mail estiver correto, você receberá instruções em alguns minutos.
             </p>
-            <div className="text-center">
-              <Link
-                to="/login"
-                className="font-mono uppercase tracking-widest text-[10px] transition-colors hover:opacity-70"
-                style={{ color: "var(--bronze)" }}
-              >
-                Voltar ao login
-              </Link>
-            </div>
+            <Link
+              to="/login"
+              className="inline-block font-mono uppercase tracking-widest text-[10px] transition-colors hover:opacity-70"
+              style={{ color: "var(--bronze)" }}
+            >
+              Voltar ao login
+            </Link>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="mt-10 space-y-6">
-            <Field
-              id="email_login"
-              label="E-mail de acesso"
-              type="email"
-              value={emailLogin}
-              onChange={setEmailLogin}
-            />
-            <Field
-              id="email_recuperacao"
-              label="E-mail pessoal"
-              type="email"
-              value={emailRecuperacao}
-              onChange={setEmailRecuperacao}
-            />
-
-            {error && (
-              <p className="font-mono text-xs" style={{ color: "#B84A4A" }} role="alert">
-                {error}
-              </p>
-            )}
+            <div className="space-y-2">
+              <label
+                htmlFor="email"
+                className="block font-mono uppercase tracking-widest"
+                style={{ color: "var(--bronze)", fontSize: "10px" }}
+              >
+                E-mail
+              </label>
+              <input
+                id="email"
+                type="email"
+                required
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full h-11 px-3 bg-[color:var(--ice)] border border-[color:var(--divider)] rounded-md font-mono text-sm outline-none focus:border-[color:var(--bronze)] transition-colors"
+                style={{ color: "var(--graphite)" }}
+              />
+            </div>
 
             <button
               type="submit"
@@ -133,41 +108,6 @@ function RecuperarSenhaPage() {
           </form>
         )}
       </div>
-    </div>
-  );
-}
-
-function Field({
-  id,
-  label,
-  type,
-  value,
-  onChange,
-}: {
-  id: string;
-  label: string;
-  type: string;
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  return (
-    <div className="space-y-2">
-      <label
-        htmlFor={id}
-        className="block font-mono uppercase tracking-widest"
-        style={{ color: "var(--bronze)", fontSize: "10px" }}
-      >
-        {label}
-      </label>
-      <input
-        id={id}
-        type={type}
-        required
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full h-11 px-3 bg-[color:var(--ice)] border border-[color:var(--divider)] rounded-md font-mono text-sm outline-none focus:border-[color:var(--bronze)] transition-colors"
-        style={{ color: "var(--graphite)" }}
-      />
     </div>
   );
 }
