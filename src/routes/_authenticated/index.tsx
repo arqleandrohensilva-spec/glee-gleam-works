@@ -148,10 +148,19 @@ function SystemCard({ system }: { system: SystemDef }) {
   const Icon = system.icon;
   const isActive = system.status === "active";
 
-  const handleClick = () => {
-    if (isActive && system.url) {
+  const handleClick = async () => {
+    if (!isActive || !system.url) return;
+    const { data } = await nlosAuth.auth.getSession();
+    const session = data.session;
+    if (!session?.access_token || !session?.refresh_token) {
       window.open(system.url, "_blank", "noopener,noreferrer");
+      return;
     }
+    const params = new URLSearchParams({
+      access_token: session.access_token,
+      refresh_token: session.refresh_token,
+    });
+    window.open(`${system.url}?${params.toString()}`, "_blank", "noopener,noreferrer");
   };
 
   return (
