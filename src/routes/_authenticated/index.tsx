@@ -8,7 +8,7 @@ import {
   LogOut,
   type LucideIcon,
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { nlosAuth } from "@/lib/nlos-auth-client";
 
 export const Route = createFileRoute("/_authenticated/")({
   component: HubPage,
@@ -58,18 +58,18 @@ function HubPage() {
   const [userLabel, setUserLabel] = useState<string>("");
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
+    nlosAuth.auth.getUser().then(({ data }) => {
       const u = data.user;
       if (u) setUserLabel(u.email ?? u.id);
     });
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+    const { data: sub } = nlosAuth.auth.onAuthStateChange((_e, session) => {
       if (!session) navigate({ to: "/login", replace: true });
     });
     return () => sub.subscription.unsubscribe();
   }, [navigate]);
 
   async function handleLogout() {
-    await supabase.auth.signOut();
+    await nlosAuth.auth.signOut();
     navigate({ to: "/login", replace: true });
   }
 

@@ -1,12 +1,12 @@
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { nlosAuth } from "@/lib/nlos-auth-client";
 import { PasswordInput } from "@/components/PasswordInput";
 
 export const Route = createFileRoute("/login")({
   ssr: false,
   beforeLoad: async () => {
-    const { data } = await supabase.auth.getSession();
+    const { data } = await nlosAuth.auth.getSession();
     if (data.session) throw redirect({ to: "/" });
   },
   component: LoginPage,
@@ -32,7 +32,7 @@ function LoginPage() {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await nlosAuth.auth.signInWithPassword({ email, password });
     if (error || !data.user) {
       setLoading(false);
       setError("Credenciais inválidas. Verifique e tente novamente.");

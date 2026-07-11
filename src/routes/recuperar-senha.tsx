@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { nlosAuth } from "@/lib/nlos-auth-client";
 
 export const Route = createFileRoute("/recuperar-senha")({
   ssr: false,
@@ -16,7 +16,7 @@ function RecuperarSenhaPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      await supabase.auth.resetPasswordForEmail(email, {
+      await nlosAuth.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/redefinir-senha`,
       });
     } catch {
