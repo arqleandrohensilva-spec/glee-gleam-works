@@ -107,16 +107,7 @@ function LoginPage() {
             >
               Senha
             </label>
-            <input
-              id="password"
-              type="password"
-              required
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full h-11 px-3 bg-[color:var(--ice)] border border-[color:var(--divider)] rounded-md font-mono text-sm outline-none focus:border-[color:var(--bronze)] transition-colors"
-              style={{ color: "var(--graphite)" }}
-            />
+            <PasswordInput id="password" value={password} onChange={setPassword} />
           </div>
 
           {error && (
