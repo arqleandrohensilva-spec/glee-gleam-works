@@ -1,11 +1,19 @@
 import { createServerFn, createMiddleware } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { getRequest } from "@tanstack/react-start/server";
+import { createClient } from "@supabase/supabase-js";
 import { nlosAuth } from "@/lib/nlos-auth-client";
 
 // Endpoint pronto e seguro do lado da landing (diagnosticonlarquitetos).
 // O segredo NUNCA vai pro navegador — fica só em process.env no servidor do HUB.
 const DIAG_LEADS_URL =
   "https://diagnosticonlarquitetos.lovable.app/api/public/get-leads-for-hub";
+
+// Banco de auth do ecossistema (mesmo do nlosAuth). Validamos o token do HUB
+// direto aqui, sem depender do Authorization/process.env — que no HUB tem dois
+// clients Supabase e pode injetar o token errado ("Invalid token").
+const NLOS_URL = "https://gwmifubdcjfyyrypenah.supabase.co";
+const NLOS_ANON =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd3bWlmdWJkY2pmeXlyeXBlbmFoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg3MDI3MTYsImV4cCI6MjEwNDI3ODcxNn0.zfd7JU4JtqpSn-y-2mfuTIRQJafzNoBvlMQsL6-7pBQ";
 
 export type DiagLead = {
   id: string;
@@ -18,29 +26,44 @@ export type DiagLead = {
   created_at: string | null;
 };
 
-// Anexa o token do usuário logado (nlosAuth) na chamada da server function,
-// garantindo que o requireSupabaseAuth valide a sessão do HUB — sem login extra.
+// CLIENT: manda o token do nlosAuth num header PRÓPRIO (x-nlos-token), que o
+// attachSupabaseAuth global não sobrescreve. Força refresh se estiver vencendo.
 const attachNlosToken = createMiddleware({ type: "function" }).client(async ({ next }) => {
   const { data } = await nlosAuth.auth.getSession();
   let token = data.session?.access_token;
-  // Se não há token ou ele está a <60s de expirar, força um refresh — evita
-  // "Unauthorized: Invalid token" por access token vencido.
   const expMs = data.session?.expires_at ? data.session.expires_at * 1000 : 0;
   if (!token || (expMs && expMs < Date.now() + 60_000)) {
     try {
       const r = await nlosAuth.auth.refreshSession();
       token = r.data.session?.access_token ?? token;
     } catch {
-      /* mantém o token atual; se inválido, o servidor devolve Unauthorized */
+      /* mantém o token atual */
     }
   }
-  return next({ headers: token ? { Authorization: `Bearer ${token}` } : {} });
+  return next({ headers: token ? { "x-nlos-token": token } : {} });
+});
+
+// SERVER: valida o x-nlos-token direto contra o banco do ecossistema.
+const requireNlos = createMiddleware({ type: "function" }).server(async ({ next }) => {
+  const req = getRequest();
+  const token = req?.headers?.get("x-nlos-token") ?? "";
+  if (!token || token.split(".").length !== 3) {
+    throw new Error("Faça login no NL OS HUB para acessar o Diagnóstico.");
+  }
+  const sb = createClient(NLOS_URL, NLOS_ANON, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const { data, error } = await sb.auth.getUser(token);
+  if (error || !data?.user) {
+    throw new Error("Sessão do HUB inválida ou expirada. Recarregue a página e tente de novo.");
+  }
+  return next({ context: { userId: data.user.id } });
 });
 
 export type DiagLeadsResult = { leads: DiagLead[]; aviso: string | null };
 
 export const getDiagnosticoLeads = createServerFn({ method: "POST" })
-  .middleware([attachNlosToken, requireSupabaseAuth])
+  .middleware([attachNlosToken, requireNlos])
   .handler(async (): Promise<DiagLeadsResult> => {
     // Falhas de config/rede viram AVISO (não erro) pra não derrubar a tela —
     // o módulo continua utilizável (campanhas) e mostra a mensagem no painel.
