@@ -4,6 +4,7 @@ import {
   Briefcase,
   Megaphone,
   Camera,
+  Stethoscope,
   LogOut,
   type LucideIcon,
 } from "lucide-react";
@@ -21,6 +22,7 @@ interface SystemDef {
   icon: LucideIcon;
   status: SystemStatus;
   url?: string;
+  internalPath?: string;
 }
 
 const SYSTEMS: SystemDef[] = [
@@ -37,6 +39,13 @@ const SYSTEMS: SystemDef[] = [
     icon: Megaphone,
     status: "active",
     url: "https://nlosmktv2.lovable.app/auth/callback",
+  },
+  {
+    name: "NL Diagnóstico",
+    description: "Leads do diagnóstico e campanhas de captação",
+    icon: Stethoscope,
+    status: "active",
+    internalPath: "/diagnostico",
   },
   {
     name: "NL OS RENDER",
@@ -138,11 +147,17 @@ function HubPage() {
 }
 
 function SystemCard({ system }: { system: SystemDef }) {
+  const navigate = useNavigate();
   const Icon = system.icon;
   const isActive = system.status === "active";
 
   const handleClick = async () => {
-    if (!isActive || !system.url) return;
+    if (!isActive) return;
+    if (system.internalPath) {
+      navigate({ to: system.internalPath });
+      return;
+    }
+    if (!system.url) return;
     const { data } = await nlosAuth.auth.getSession();
     const session = data.session;
     if (!session?.access_token || !session?.refresh_token) {
