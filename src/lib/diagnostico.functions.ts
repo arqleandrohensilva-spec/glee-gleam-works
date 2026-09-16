@@ -22,7 +22,18 @@ export type DiagLead = {
 // garantindo que o requireSupabaseAuth valide a sessão do HUB — sem login extra.
 const attachNlosToken = createMiddleware({ type: "function" }).client(async ({ next }) => {
   const { data } = await nlosAuth.auth.getSession();
-  const token = data.session?.access_token;
+  let token = data.session?.access_token;
+  // Se não há token ou ele está a <60s de expirar, força um refresh — evita
+  // "Unauthorized: Invalid token" por access token vencido.
+  const expMs = data.session?.expires_at ? data.session.expires_at * 1000 : 0;
+  if (!token || (expMs && expMs < Date.now() + 60_000)) {
+    try {
+      const r = await nlosAuth.auth.refreshSession();
+      token = r.data.session?.access_token ?? token;
+    } catch {
+      /* mantém o token atual; se inválido, o servidor devolve Unauthorized */
+    }
+  }
   return next({ headers: token ? { Authorization: `Bearer ${token}` } : {} });
 });
 
