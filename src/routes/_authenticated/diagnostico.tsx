@@ -72,7 +72,7 @@ function DiagnosticoPage() {
   const qc = useQueryClient();
   const getLeads = useServerFn(getDiagnosticoLeads);
 
-  const { data: leads, isLoading: loadingLeads, error: leadsError } = useQuery({
+  const { data: leadsData, isLoading: loadingLeads, error: leadsError } = useQuery({
     queryKey: ["diag-leads"],
     queryFn: () => getLeads(),
   });
@@ -109,7 +109,7 @@ function DiagnosticoPage() {
 
       <main className="flex-1 px-6 py-10 max-w-5xl w-full mx-auto space-y-14">
         <CampanhasSection campanhas={campanhas ?? []} onChange={() => qc.invalidateQueries({ queryKey: ["diag-campanhas"] })} />
-        <LeadsSection leads={leads ?? []} loading={loadingLeads} error={leadsError as Error | null} />
+        <LeadsSection leads={leadsData?.leads ?? []} aviso={leadsData?.aviso ?? null} loading={loadingLeads} error={leadsError as Error | null} />
       </main>
     </div>
   );
@@ -254,7 +254,7 @@ function CampanhasSection({ campanhas, onChange }: { campanhas: Campanha[]; onCh
 
 /* ---------------- B) Painel de leads ---------------- */
 
-function LeadsSection({ leads, loading, error }: { leads: DiagLead[]; loading: boolean; error: Error | null }) {
+function LeadsSection({ leads, aviso, loading, error }: { leads: DiagLead[]; aviso: string | null; loading: boolean; error: Error | null }) {
   const resumo = useMemo(() => {
     const total = leads.length;
     const comUtm = leads.filter((l) => (l.utm_source ?? "").trim() !== "").length;
@@ -304,6 +304,12 @@ function LeadsSection({ leads, loading, error }: { leads: DiagLead[]; loading: b
       <div className="font-mono uppercase tracking-widest mb-5" style={{ color: "var(--bronze)", fontSize: "10px" }}>
         Painel de leads
       </div>
+
+      {aviso && (
+        <div className="mb-5 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm" style={{ color: "#7a5b16" }}>
+          {aviso}
+        </div>
+      )}
 
       {error ? (
         <div className="bg-white border border-red-200 rounded-lg p-5 text-sm text-red-600">

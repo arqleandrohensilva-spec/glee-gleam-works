@@ -26,39 +26,49 @@ const attachNlosToken = createMiddleware({ type: "function" }).client(async ({ n
   return next({ headers: token ? { Authorization: `Bearer ${token}` } : {} });
 });
 
+export type DiagLeadsResult = { leads: DiagLead[]; aviso: string | null };
+
 export const getDiagnosticoLeads = createServerFn({ method: "POST" })
   .middleware([attachNlosToken, requireSupabaseAuth])
-  .handler(async (): Promise<DiagLead[]> => {
+  .handler(async (): Promise<DiagLeadsResult> => {
+    // Falhas de config/rede viram AVISO (não erro) pra não derrubar a tela —
+    // o módulo continua utilizável (campanhas) e mostra a mensagem no painel.
     const secret = process.env.DIAG_HUB_SECRET?.trim();
     if (!secret) {
-      throw new Error(
-        "Configure o secret DIAG_HUB_SECRET no backend do NL OS HUB para ler os leads do Diagnóstico.",
-      );
+      return {
+        leads: [],
+        aviso: "Secret DIAG_HUB_SECRET ainda não configurado no backend do HUB. Adicione o secret e recarregue.",
+      };
     }
 
-    const res = await fetch(DIAG_LEADS_URL, {
-      method: "GET",
-      headers: { "x-hub-secret": secret },
-    });
+    try {
+      const res = await fetch(DIAG_LEADS_URL, {
+        method: "GET",
+        headers: { "x-hub-secret": secret },
+      });
 
-    if (!res.ok) {
-      const body = await res.text().catch(() => "");
-      if (res.status === 401 || res.status === 403) {
-        throw new Error("Secret do Diagnóstico inválido (x-hub-secret rejeitado pela landing).");
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+          return { leads: [], aviso: "Secret do Diagnóstico rejeitado pela landing (x-hub-secret inválido)." };
+        }
+        const body = await res.text().catch(() => "");
+        return { leads: [], aviso: `Falha ao buscar leads (${res.status}): ${body.slice(0, 120)}` };
       }
-      throw new Error(`Falha ao buscar leads do Diagnóstico (${res.status}): ${body.slice(0, 160)}`);
-    }
 
-    const json = (await res.json().catch(() => ({}))) as { leads?: unknown };
-    const arr = Array.isArray(json?.leads) ? json.leads : [];
-    return arr.map((l: any): DiagLead => ({
-      id: String(l?.id ?? ""),
-      nome: String(l?.nome ?? ""),
-      whatsapp: String(l?.whatsapp ?? ""),
-      situacao: l?.situacao ?? null,
-      utm_source: l?.utm_source ?? null,
-      utm_medium: l?.utm_medium ?? null,
-      utm_campaign: l?.utm_campaign ?? null,
-      created_at: l?.created_at ?? null,
-    }));
+      const json = (await res.json().catch(() => ({}))) as { leads?: unknown };
+      const arr = Array.isArray(json?.leads) ? json.leads : [];
+      const leads = arr.map((l: any): DiagLead => ({
+        id: String(l?.id ?? ""),
+        nome: String(l?.nome ?? ""),
+        whatsapp: String(l?.whatsapp ?? ""),
+        situacao: l?.situacao ?? null,
+        utm_source: l?.utm_source ?? null,
+        utm_medium: l?.utm_medium ?? null,
+        utm_campaign: l?.utm_campaign ?? null,
+        created_at: l?.created_at ?? null,
+      }));
+      return { leads, aviso: null };
+    } catch (e: any) {
+      return { leads: [], aviso: `Não foi possível contatar a landing: ${e?.message ?? "erro de rede"}` };
+    }
   });
