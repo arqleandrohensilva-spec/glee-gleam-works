@@ -11,7 +11,21 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
-import { ArrowLeft, Copy, Check, Trash2, Plus, Link2, Users, Target, Layers, Loader2 } from "lucide-react";
+import {
+  ArrowLeft,
+  Copy,
+  Check,
+  Trash2,
+  Plus,
+  Link2,
+  Users,
+  Target,
+  Layers,
+  Loader2,
+  RefreshCw,
+  TrendingUp,
+  Radar,
+} from "lucide-react";
 import { nlosAuth } from "@/lib/nlos-auth-client";
 import { getDiagnosticoLeads, type DiagLead } from "@/lib/diagnostico.functions";
 
@@ -28,6 +42,8 @@ type Campanha = {
   url_completa: string;
   created_at: string;
 };
+
+type Aba = "painel" | "campanhas";
 
 function montarUrlUtm(urlBase: string, origem: string, meio: string, campanha: string): string {
   const base = urlBase.includes("://") ? urlBase : `https://${urlBase}`;
@@ -57,22 +73,39 @@ function fmtData(iso: string | null): string {
   return d.toLocaleDateString("pt-BR");
 }
 
-// Segunda-feira da semana da data (para agrupar leads por semana).
+function diasAtras(iso: string | null): number | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  return Math.floor((Date.now() - d.getTime()) / 86_400_000);
+}
+
 function inicioSemana(iso: string | null): string | null {
   if (!iso) return null;
   const d = new Date(iso);
   if (isNaN(d.getTime())) return null;
-  const dia = (d.getDay() + 6) % 7; // 0 = segunda
+  const dia = (d.getDay() + 6) % 7;
   d.setDate(d.getDate() - dia);
   d.setHours(0, 0, 0, 0);
   return d.toISOString().slice(0, 10);
 }
 
+function rankBy(leads: DiagLead[], key: (l: DiagLead) => string | null) {
+  const m: Record<string, number> = {};
+  for (const l of leads) {
+    const k = (key(l) ?? "").trim();
+    if (!k) continue;
+    m[k] = (m[k] ?? 0) + 1;
+  }
+  return Object.entries(m).map(([k, n]) => ({ k, n })).sort((a, b) => b.n - a.n);
+}
+
 function DiagnosticoPage() {
   const qc = useQueryClient();
   const getLeads = useServerFn(getDiagnosticoLeads);
+  const [aba, setAba] = useState<Aba>("painel");
 
-  const { data: leadsData, isLoading: loadingLeads, error: leadsError } = useQuery({
+  const { data: leadsData, isLoading: loadingLeads, error: leadsError, isFetching } = useQuery({
     queryKey: ["diag-leads"],
     queryFn: () => getLeads(),
   });
@@ -105,17 +138,254 @@ function DiagnosticoPage() {
             NL Diagnóstico
           </span>
         </div>
+
+        <div className="flex items-center gap-1 bg-[color:var(--ice)] p-1 rounded-md">
+          {(["painel", "campanhas"] as const).map((t) => (
+            <button
+              key={t}
+              onClick={() => setAba(t)}
+              className="px-4 py-1.5 rounded-[4px] font-mono uppercase tracking-widest text-[9px] transition-colors"
+              style={
+                aba === t
+                  ? { backgroundColor: "var(--graphite)", color: "#fff" }
+                  : { color: "var(--graphite)", opacity: 0.6 }
+              }
+            >
+              {t === "painel" ? "Painel" : "Campanhas"}
+            </button>
+          ))}
+        </div>
       </header>
 
-      <main className="flex-1 px-6 py-10 max-w-5xl w-full mx-auto space-y-14">
-        <CampanhasSection campanhas={campanhas ?? []} onChange={() => qc.invalidateQueries({ queryKey: ["diag-campanhas"] })} />
-        <LeadsSection leads={leadsData?.leads ?? []} aviso={leadsData?.aviso ?? null} loading={loadingLeads} error={leadsError as Error | null} />
+      <main className="flex-1 px-6 py-10 max-w-5xl w-full mx-auto">
+        {aba === "campanhas" ? (
+          <CampanhasSection
+            campanhas={campanhas ?? []}
+            onChange={() => qc.invalidateQueries({ queryKey: ["diag-campanhas"] })}
+          />
+        ) : (
+          <LeadsSection
+            leads={leadsData?.leads ?? []}
+            aviso={leadsData?.aviso ?? null}
+            loading={loadingLeads}
+            fetching={isFetching}
+            error={leadsError as Error | null}
+            onRefresh={() => qc.invalidateQueries({ queryKey: ["diag-leads"] })}
+          />
+        )}
       </main>
     </div>
   );
 }
 
-/* ---------------- A) Registro de campanhas / links ---------------- */
+/* ---------------- Painel de leads ---------------- */
+
+function LeadsSection({
+  leads,
+  aviso,
+  loading,
+  fetching,
+  error,
+  onRefresh,
+}: {
+  leads: DiagLead[];
+  aviso: string | null;
+  loading: boolean;
+  fetching: boolean;
+  error: Error | null;
+  onRefresh: () => void;
+}) {
+  const [busca, setBusca] = useState("");
+
+  const m = useMemo(() => {
+    const total = leads.length;
+    const comUtm = leads.filter((l) => (l.utm_source ?? "").trim() !== "").length;
+    const pctUtm = total ? Math.round((comUtm / total) * 100) : 0;
+    const nDias = (n: number) => leads.filter((l) => { const d = diasAtras(l.created_at); return d !== null && d <= n; }).length;
+    return {
+      total,
+      comUtm,
+      direto: total - comUtm,
+      pctUtm,
+      d7: nDias(7),
+      d30: nDias(30),
+      campanhas: rankBy(leads, (l) => l.utm_campaign),
+      origens: rankBy(leads, (l) => l.utm_source),
+      meios: rankBy(leads, (l) => l.utm_medium),
+      situacoes: rankBy(leads, (l) => l.situacao),
+    };
+  }, [leads]);
+
+  const semanal = useMemo(() => {
+    const mp: Record<string, number> = {};
+    for (const l of leads) {
+      const s = inicioSemana(l.created_at);
+      if (!s) continue;
+      mp[s] = (mp[s] ?? 0) + 1;
+    }
+    return Object.entries(mp)
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([iso, total]) => ({
+        label: new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
+        total,
+      }));
+  }, [leads]);
+
+  const leadsFiltrados = useMemo(() => {
+    const q = busca.trim().toLowerCase();
+    const arr = [...leads].sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""));
+    if (!q) return arr;
+    return arr.filter((l) =>
+      [l.nome, l.whatsapp, l.utm_campaign, l.utm_source, l.utm_medium, l.situacao]
+        .map((v) => (v ?? "").toLowerCase())
+        .some((v) => v.includes(q)),
+    );
+  }, [leads, busca]);
+
+  return (
+    <section>
+      <div className="flex items-center justify-between mb-5">
+        <div className="font-mono uppercase tracking-widest" style={{ color: "var(--bronze)", fontSize: "10px" }}>
+          Painel de leads
+        </div>
+        <button
+          onClick={onRefresh}
+          disabled={fetching}
+          className="inline-flex items-center gap-1.5 rounded-md border border-[color:var(--divider)] px-3 py-1.5 text-[10px] font-mono uppercase tracking-widest hover:border-[color:var(--bronze)] transition-colors disabled:opacity-40"
+          style={{ color: "var(--graphite)" }}
+        >
+          <RefreshCw size={13} className={fetching ? "animate-spin" : ""} /> Atualizar
+        </button>
+      </div>
+
+      {aviso && (
+        <div className="mb-5 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm" style={{ color: "#7a5b16" }}>
+          {aviso}
+        </div>
+      )}
+
+      {error ? (
+        <div className="bg-white border border-red-200 rounded-lg p-5 text-sm text-red-600">{error.message}</div>
+      ) : loading ? (
+        <div className="flex items-center gap-2 py-10 justify-center" style={{ color: "var(--bronze)" }}>
+          <Loader2 size={18} className="animate-spin" /> Carregando leads…
+        </div>
+      ) : (
+        <>
+          {/* Cards de resumo */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <Stat icon={Users} label="Total de leads" value={String(m.total)} />
+            <Stat icon={Target} label="Rastreados (UTM)" value={`${m.pctUtm}%`} sub={`${m.comUtm} com UTM · ${m.direto} direto`} />
+            <Stat icon={TrendingUp} label="Novos · 7 dias" value={String(m.d7)} sub={`${m.d30} nos últimos 30`} />
+            <Stat icon={Layers} label="Top campanha" value={m.campanhas[0]?.k ?? "—"} sub={m.campanhas[0] ? `${m.campanhas[0].n} leads` : "sem UTM ainda"} />
+          </div>
+
+          {/* Rankings */}
+          <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <RankList title="Por campanha" icon={Layers} items={m.campanhas} />
+            <RankList title="Por origem" icon={Radar} items={m.origens} />
+            <RankList title="Por meio" icon={Target} items={m.meios} />
+          </div>
+
+          {/* Situação */}
+          {m.situacoes.length > 0 && (
+            <div className="mt-4 bg-white border border-[color:var(--divider)] rounded-lg p-4">
+              <div className="font-mono uppercase tracking-widest mb-3" style={{ color: "var(--bronze)", fontSize: "9px" }}>
+                Por situação
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {m.situacoes.map((s) => (
+                  <span key={s.k} className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs" style={{ backgroundColor: "var(--ice)", color: "var(--graphite)" }}>
+                    {s.k} <b style={{ color: "var(--bronze)" }}>{s.n}</b>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Gráfico por semana */}
+          <div className="mt-6 bg-white border border-[color:var(--divider)] rounded-lg p-5">
+            <div className="font-mono uppercase tracking-widest mb-4" style={{ color: "var(--bronze)", fontSize: "9px" }}>
+              Leads por semana
+            </div>
+            {semanal.length === 0 ? (
+              <p className="text-xs py-8 text-center" style={{ color: "var(--graphite)", opacity: 0.6 }}>Sem dados suficientes.</p>
+            ) : (
+              <div style={{ width: "100%", height: 240 }}>
+                <ResponsiveContainer>
+                  <BarChart data={semanal} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#D1D1D1" vertical={false} />
+                    <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#3A3A3A" }} tickLine={false} axisLine={{ stroke: "#D1D1D1" }} />
+                    <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: "#3A3A3A" }} tickLine={false} axisLine={false} />
+                    <Tooltip cursor={{ fill: "rgba(139,115,85,0.08)" }} contentStyle={{ fontSize: 12, borderRadius: 6, border: "1px solid #D1D1D1" }} labelStyle={{ color: "#3A3A3A" }} />
+                    <Bar dataKey="total" fill="#8B7355" radius={[3, 3, 0, 0]} maxBarSize={38} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+
+          {/* Tabela */}
+          <div className="mt-6">
+            <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
+              <div className="font-mono uppercase tracking-widest" style={{ color: "var(--bronze)", fontSize: "9px" }}>
+                Todos os leads {busca && `· ${leadsFiltrados.length} de ${leads.length}`}
+              </div>
+              <input
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+                placeholder="Buscar por nome, campanha, origem…"
+                className="w-full sm:w-72 rounded-md border border-[color:var(--divider)] bg-white px-3 py-1.5 text-sm outline-none focus:border-[color:var(--bronze)]"
+                style={{ color: "var(--graphite)" }}
+              />
+            </div>
+            <div className="bg-white border border-[color:var(--divider)] rounded-lg overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-[color:var(--divider)]" style={{ color: "var(--bronze)" }}>
+                      {["Nome", "WhatsApp", "Situação", "Fonte", "Meio", "Campanha", "Data"].map((h) => (
+                        <th key={h} className="text-left font-mono uppercase tracking-widest px-4 py-3" style={{ fontSize: "9px" }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {leadsFiltrados.length === 0 ? (
+                      <tr><td colSpan={7} className="px-4 py-10 text-center text-xs" style={{ color: "var(--graphite)", opacity: 0.6 }}>{leads.length === 0 ? "Nenhum lead ainda." : "Nenhum lead para essa busca."}</td></tr>
+                    ) : (
+                      leadsFiltrados.map((l) => {
+                        const wa = waHref(l.whatsapp);
+                        return (
+                          <tr key={l.id} className="border-b border-[color:var(--divider)] last:border-0">
+                            <td className="px-4 py-3" style={{ color: "var(--graphite)" }}>{l.nome || "—"}</td>
+                            <td className="px-4 py-3">
+                              {wa ? (
+                                <a href={wa} target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: "var(--bronze)" }}>{l.whatsapp}</a>
+                              ) : (
+                                <span style={{ color: "var(--graphite)", opacity: 0.5 }}>—</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3" style={{ color: "var(--graphite)" }}>{l.situacao || "—"}</td>
+                            <td className="px-4 py-3" style={{ color: "var(--graphite)" }}>{l.utm_source || <Direto />}</td>
+                            <td className="px-4 py-3" style={{ color: "var(--graphite)" }}>{l.utm_medium || "—"}</td>
+                            <td className="px-4 py-3" style={{ color: "var(--graphite)" }}>{l.utm_campaign || "—"}</td>
+                            <td className="px-4 py-3 whitespace-nowrap" style={{ color: "var(--graphite)", opacity: 0.8 }}>{fmtData(l.created_at)}</td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
+/* ---------------- Registro de campanhas ---------------- */
 
 function CampanhasSection({ campanhas, onChange }: { campanhas: Campanha[]; onChange: () => void }) {
   const [origem, setOrigem] = useState("");
@@ -202,13 +472,10 @@ function CampanhasSection({ campanhas, onChange }: { campanhas: Campanha[]; onCh
             {salvar.isPending ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
             Salvar e gerar link
           </button>
-          {salvar.isError && (
-            <span className="ml-3 text-xs text-red-600">Erro ao salvar. Tente de novo.</span>
-          )}
+          {salvar.isError && <span className="ml-3 text-xs text-red-600">Erro ao salvar. Tente de novo.</span>}
         </div>
       </div>
 
-      {/* Lista de campanhas */}
       <div className="mt-6 space-y-3">
         {campanhas.length === 0 ? (
           <div className="text-center py-8 border border-dashed border-[color:var(--divider)] rounded-lg">
@@ -252,156 +519,37 @@ function CampanhasSection({ campanhas, onChange }: { campanhas: Campanha[]; onCh
   );
 }
 
-/* ---------------- B) Painel de leads ---------------- */
+/* ---------------- UI helpers ---------------- */
 
-function LeadsSection({ leads, aviso, loading, error }: { leads: DiagLead[]; aviso: string | null; loading: boolean; error: Error | null }) {
-  const resumo = useMemo(() => {
-    const total = leads.length;
-    const comUtm = leads.filter((l) => (l.utm_source ?? "").trim() !== "").length;
-    const direto = total - comUtm;
-
-    const rank = (key: (l: DiagLead) => string | null) => {
-      const m: Record<string, number> = {};
-      for (const l of leads) {
-        const k = (key(l) ?? "").trim();
-        if (!k) continue;
-        m[k] = (m[k] ?? 0) + 1;
-      }
-      return Object.entries(m).map(([k, n]) => ({ k, n })).sort((a, b) => b.n - a.n);
-    };
-
-    return {
-      total,
-      comUtm,
-      direto,
-      campanhas: rank((l) => l.utm_campaign),
-      meios: rank((l) => l.utm_medium),
-    };
-  }, [leads]);
-
-  const semanal = useMemo(() => {
-    const m: Record<string, number> = {};
-    for (const l of leads) {
-      const s = inicioSemana(l.created_at);
-      if (!s) continue;
-      m[s] = (m[s] ?? 0) + 1;
-    }
-    return Object.entries(m)
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([iso, total]) => ({
-        label: new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
-        total,
-      }));
-  }, [leads]);
-
-  const leadsOrdenados = useMemo(
-    () => [...leads].sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? "")),
-    [leads],
-  );
-
+function RankList({ title, icon: Icon, items }: { title: string; icon: typeof Users; items: { k: string; n: number }[] }) {
+  const top = items.slice(0, 6);
+  const max = top[0]?.n ?? 1;
   return (
-    <section>
-      <div className="font-mono uppercase tracking-widest mb-5" style={{ color: "var(--bronze)", fontSize: "10px" }}>
-        Painel de leads
+    <div className="bg-white border border-[color:var(--divider)] rounded-lg p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <Icon size={13} style={{ color: "var(--bronze)" }} />
+        <span className="font-mono uppercase tracking-widest" style={{ color: "var(--bronze)", fontSize: "9px" }}>{title}</span>
       </div>
-
-      {aviso && (
-        <div className="mb-5 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm" style={{ color: "#7a5b16" }}>
-          {aviso}
-        </div>
-      )}
-
-      {error ? (
-        <div className="bg-white border border-red-200 rounded-lg p-5 text-sm text-red-600">
-          {error.message}
-        </div>
-      ) : loading ? (
-        <div className="flex items-center gap-2 py-10 justify-center" style={{ color: "var(--bronze)" }}>
-          <Loader2 size={18} className="animate-spin" /> Carregando leads…
-        </div>
+      {top.length === 0 ? (
+        <p className="text-xs py-3" style={{ color: "var(--graphite)", opacity: 0.5 }}>Sem dados ainda.</p>
       ) : (
-        <>
-          {/* Cards de resumo */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <Stat icon={Users} label="Total de leads" value={String(resumo.total)} />
-            <Stat icon={Target} label="Com UTM / direto" value={`${resumo.comUtm} / ${resumo.direto}`} />
-            <Stat icon={Layers} label="Top campanha" value={resumo.campanhas[0]?.k ?? "—"} sub={resumo.campanhas[0] ? `${resumo.campanhas[0].n} leads` : undefined} />
-            <Stat icon={Layers} label="Top meio" value={resumo.meios[0]?.k ?? "—"} sub={resumo.meios[0] ? `${resumo.meios[0].n} leads` : undefined} />
-          </div>
-
-          {/* Gráfico por semana */}
-          <div className="mt-6 bg-white border border-[color:var(--divider)] rounded-lg p-5">
-            <div className="font-mono uppercase tracking-widest mb-4" style={{ color: "var(--bronze)", fontSize: "9px" }}>
-              Leads por semana
-            </div>
-            {semanal.length === 0 ? (
-              <p className="text-xs py-8 text-center" style={{ color: "var(--graphite)", opacity: 0.6 }}>Sem dados suficientes.</p>
-            ) : (
-              <div style={{ width: "100%", height: 240 }}>
-                <ResponsiveContainer>
-                  <BarChart data={semanal} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#D1D1D1" vertical={false} />
-                    <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#3A3A3A" }} tickLine={false} axisLine={{ stroke: "#D1D1D1" }} />
-                    <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: "#3A3A3A" }} tickLine={false} axisLine={false} />
-                    <Tooltip
-                      cursor={{ fill: "rgba(139,115,85,0.08)" }}
-                      contentStyle={{ fontSize: 12, borderRadius: 6, border: "1px solid #D1D1D1" }}
-                      labelStyle={{ color: "#3A3A3A" }}
-                    />
-                    <Bar dataKey="total" fill="#8B7355" radius={[3, 3, 0, 0]} maxBarSize={38} />
-                  </BarChart>
-                </ResponsiveContainer>
+        <div className="space-y-2.5">
+          {top.map((it) => (
+            <div key={it.k}>
+              <div className="flex items-center justify-between text-xs mb-1">
+                <span className="truncate pr-2" style={{ color: "var(--graphite)" }} title={it.k}>{it.k}</span>
+                <span className="font-mono shrink-0" style={{ color: "var(--bronze)" }}>{it.n}</span>
               </div>
-            )}
-          </div>
-
-          {/* Tabela */}
-          <div className="mt-6 bg-white border border-[color:var(--divider)] rounded-lg overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-[color:var(--divider)]" style={{ color: "var(--bronze)" }}>
-                    {["Nome", "WhatsApp", "Situação", "Fonte", "Meio", "Campanha", "Data"].map((h) => (
-                      <th key={h} className="text-left font-mono uppercase tracking-widest px-4 py-3" style={{ fontSize: "9px" }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {leadsOrdenados.length === 0 ? (
-                    <tr><td colSpan={7} className="px-4 py-10 text-center text-xs" style={{ color: "var(--graphite)", opacity: 0.6 }}>Nenhum lead ainda.</td></tr>
-                  ) : (
-                    leadsOrdenados.map((l) => {
-                      const wa = waHref(l.whatsapp);
-                      return (
-                        <tr key={l.id} className="border-b border-[color:var(--divider)] last:border-0">
-                          <td className="px-4 py-3" style={{ color: "var(--graphite)" }}>{l.nome || "—"}</td>
-                          <td className="px-4 py-3">
-                            {wa ? (
-                              <a href={wa} target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: "var(--bronze)" }}>{l.whatsapp}</a>
-                            ) : (
-                              <span style={{ color: "var(--graphite)", opacity: 0.5 }}>—</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3" style={{ color: "var(--graphite)" }}>{l.situacao || "—"}</td>
-                          <td className="px-4 py-3" style={{ color: "var(--graphite)" }}>{l.utm_source || <Direto />}</td>
-                          <td className="px-4 py-3" style={{ color: "var(--graphite)" }}>{l.utm_medium || "—"}</td>
-                          <td className="px-4 py-3" style={{ color: "var(--graphite)" }}>{l.utm_campaign || "—"}</td>
-                          <td className="px-4 py-3 whitespace-nowrap" style={{ color: "var(--graphite)", opacity: 0.8 }}>{fmtData(l.created_at)}</td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
+              <div className="h-1.5 rounded-full" style={{ backgroundColor: "var(--ice)" }}>
+                <div className="h-1.5 rounded-full" style={{ width: `${Math.max(6, (it.n / max) * 100)}%`, backgroundColor: "var(--bronze)" }} />
+              </div>
             </div>
-          </div>
-        </>
+          ))}
+        </div>
       )}
-    </section>
+    </div>
   );
 }
-
-/* ---------------- UI helpers ---------------- */
 
 function Campo({ label, value, onChange, placeholder, list }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string; list?: string }) {
   return (
