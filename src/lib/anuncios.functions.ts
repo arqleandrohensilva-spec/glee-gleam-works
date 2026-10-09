@@ -48,6 +48,9 @@ async function buscarCanal(
     const res = await fetch(url.toString(), { headers: { Accept: "application/json" } });
     const text = await res.text();
     if (!res.ok) {
+      if (/no \w+ accounts are configured/i.test(text)) {
+        return { linhas: [], aviso: `${NOME[canal]}: conta ainda não conectada no Windsor.ai. Conecte em onboard.windsor.ai para os dados aparecerem aqui.` };
+      }
       return { linhas: [], aviso: `${NOME[canal]}: falha ao buscar dados (${res.status}). ${text.slice(0, 120)}` };
     }
     let json: any = null;
