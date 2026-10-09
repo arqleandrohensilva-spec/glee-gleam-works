@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { nlosAuth } from "@/lib/nlos-auth-client";
 import { getDiagnosticoLeads, type DiagLead } from "@/lib/diagnostico.functions";
+import { AnunciosSection } from "@/components/AnunciosSection";
 
 export const Route = createFileRoute("/_authenticated/diagnostico")({
   component: DiagnosticoPage,
@@ -43,7 +44,7 @@ type Campanha = {
   created_at: string;
 };
 
-type Aba = "painel" | "campanhas";
+type Aba = "painel" | "anuncios" | "campanhas";
 
 function montarUrlUtm(urlBase: string, origem: string, meio: string, campanha: string): string {
   const base = urlBase.includes("://") ? urlBase : `https://${urlBase}`;
@@ -140,7 +141,7 @@ function DiagnosticoPage() {
         </div>
 
         <div className="flex items-center gap-1 bg-[color:var(--ice)] p-1 rounded-md">
-          {(["painel", "campanhas"] as const).map((t) => (
+          {(["painel", "anuncios", "campanhas"] as const).map((t) => (
             <button
               key={t}
               onClick={() => setAba(t)}
@@ -151,14 +152,16 @@ function DiagnosticoPage() {
                   : { color: "var(--graphite)", opacity: 0.6 }
               }
             >
-              {t === "painel" ? "Painel" : "Campanhas"}
+              {t === "painel" ? "Painel" : t === "anuncios" ? "Anúncios" : "Campanhas"}
             </button>
           ))}
         </div>
       </header>
 
       <main className="flex-1 px-6 py-10 max-w-5xl w-full mx-auto">
-        {aba === "campanhas" ? (
+        {aba === "anuncios" ? (
+          <AnunciosSection leads={leadsData?.leads ?? []} />
+        ) : aba === "campanhas" ? (
           <CampanhasSection
             campanhas={campanhas ?? []}
             onChange={() => qc.invalidateQueries({ queryKey: ["diag-campanhas"] })}
@@ -236,7 +239,7 @@ function LeadsSection({
     const arr = [...leads].sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""));
     if (!q) return arr;
     return arr.filter((l) =>
-      [l.nome, l.whatsapp, l.utm_campaign, l.utm_source, l.utm_medium, l.situacao]
+      [l.nome, l.whatsapp, l.utm_campaign, l.utm_content, l.utm_source, l.utm_medium, l.situacao]
         .map((v) => (v ?? "").toLowerCase())
         .some((v) => v.includes(q)),
     );
@@ -344,7 +347,7 @@ function LeadsSection({
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-[color:var(--divider)]" style={{ color: "var(--bronze)" }}>
-                      {["Nome", "WhatsApp", "Situação", "Fonte", "Meio", "Campanha", "Data"].map((h) => (
+                      {["Nome", "WhatsApp", "Situação", "Fonte", "Meio", "Campanha", "Conteúdo", "Data"].map((h) => (
                         <th key={h} className="text-left font-mono uppercase tracking-widest px-4 py-3" style={{ fontSize: "9px" }}>{h}</th>
                       ))}
                     </tr>
@@ -369,6 +372,7 @@ function LeadsSection({
                             <td className="px-4 py-3" style={{ color: "var(--graphite)" }}>{l.utm_source || <Direto />}</td>
                             <td className="px-4 py-3" style={{ color: "var(--graphite)" }}>{l.utm_medium || "—"}</td>
                             <td className="px-4 py-3" style={{ color: "var(--graphite)" }}>{l.utm_campaign || "—"}</td>
+                            <td className="px-4 py-3" style={{ color: "var(--graphite)" }}>{l.utm_content || "—"}</td>
                             <td className="px-4 py-3 whitespace-nowrap" style={{ color: "var(--graphite)", opacity: 0.8 }}>{fmtData(l.created_at)}</td>
                           </tr>
                         );

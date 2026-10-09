@@ -23,12 +23,13 @@ export type DiagLead = {
   utm_source: string | null;
   utm_medium: string | null;
   utm_campaign: string | null;
+  utm_content: string | null;
   created_at: string | null;
 };
 
 // CLIENT: manda o token do nlosAuth num header PRÓPRIO (x-nlos-token), que o
 // attachSupabaseAuth global não sobrescreve. Força refresh se estiver vencendo.
-const attachNlosToken = createMiddleware({ type: "function" }).client(async ({ next }) => {
+export const attachNlosToken = createMiddleware({ type: "function" }).client(async ({ next }) => {
   const { data } = await nlosAuth.auth.getSession();
   let token = data.session?.access_token;
   const expMs = data.session?.expires_at ? data.session.expires_at * 1000 : 0;
@@ -44,7 +45,7 @@ const attachNlosToken = createMiddleware({ type: "function" }).client(async ({ n
 });
 
 // SERVER: valida o x-nlos-token direto contra o banco do ecossistema.
-const requireNlos = createMiddleware({ type: "function" }).server(async ({ next }) => {
+export const requireNlos = createMiddleware({ type: "function" }).server(async ({ next }) => {
   const req = getRequest();
   const token = req?.headers?.get("x-nlos-token") ?? "";
   if (!token || token.split(".").length !== 3) {
@@ -99,6 +100,7 @@ export const getDiagnosticoLeads = createServerFn({ method: "POST" })
         utm_source: l?.utm_source ?? null,
         utm_medium: l?.utm_medium ?? null,
         utm_campaign: l?.utm_campaign ?? null,
+        utm_content: l?.utm_content ?? null,
         created_at: l?.created_at ?? null,
       }));
       return { leads, aviso: null };
