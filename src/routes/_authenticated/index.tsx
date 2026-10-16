@@ -5,6 +5,7 @@ import {
   Megaphone,
   Camera,
   Stethoscope,
+  Calculator,
   LogOut,
   type LucideIcon,
 } from "lucide-react";
@@ -23,6 +24,8 @@ interface SystemDef {
   status: SystemStatus;
   url?: string;
   internalPath?: string;
+  /** Sistemas sem login do NL OS abrem direto, sem repassar a sessão. */
+  semSessao?: boolean;
 }
 
 const SYSTEMS: SystemDef[] = [
@@ -46,6 +49,14 @@ const SYSTEMS: SystemDef[] = [
     icon: Stethoscope,
     status: "active",
     internalPath: "/diagnostico",
+  },
+  {
+    name: "NL EVF",
+    description: "Estudo de viabilidade financeira e orçamento de obras",
+    icon: Calculator,
+    status: "active",
+    url: "https://obra-pro-build-planner.lovable.app",
+    semSessao: true,
   },
   {
     name: "NL OS RENDER",
@@ -158,6 +169,10 @@ function SystemCard({ system }: { system: SystemDef }) {
       return;
     }
     if (!system.url) return;
+    if (system.semSessao) {
+      window.open(system.url, "_blank", "noopener,noreferrer");
+      return;
+    }
     const { data } = await nlosAuth.auth.getSession();
     const session = data.session;
     if (!session?.access_token || !session?.refresh_token) {
